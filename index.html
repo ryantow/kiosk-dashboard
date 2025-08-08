@@ -41,30 +41,30 @@
   </script>
 
 
-
 <script>
-  const auth0Client = await createAuth0Client({
-    domain: "dev-aaolivwuloqtruxd.us.auth0.com",
-    client_id: "NK8DuACzIoELU1Y1X5cNy82t9eiP4Ruy",
-    redirect_uri: window.location.origin
-  });
+  (async () => {
+    const auth0Client = await createAuth0Client({
+      domain: "dev-aaolivwuloqtruxd.us.auth0.com",
+      client_id: "NK8DuACzIoELU1Y1X5cNy82t9eiP4Ruy",
+      redirect_uri: window.location.origin
+    });
 
-  // If returning from login
-  if (window.location.search.includes("code=")) {
-    await auth0Client.handleRedirectCallback();
-    window.history.replaceState({}, document.title, "/");
-  }
+    if (window.location.search.includes("code=") && window.location.search.includes("state=")) {
+      await auth0Client.handleRedirectCallback();
+      window.history.replaceState({}, document.title, "/");
+    }
 
-  const isAuthenticated = await auth0Client.isAuthenticated();
+    const isAuthenticated = await auth0Client.isAuthenticated();
 
-  if (!isAuthenticated) {
-    await auth0Client.loginWithRedirect();
-  } else {
-    const user = await auth0Client.getUser();
-    console.log("Logged in as:", user.name);
-    // Render your dashboard here
-  }
+    if (!isAuthenticated) {
+      await auth0Client.loginWithRedirect();
+    } else {
+      const user = await auth0Client.getUser();
+      document.body.innerHTML = `<h2>Welcome, ${user.name}</h2>`;
+    }
+  })();
 </script>
+
 
 </body>
 </html>
