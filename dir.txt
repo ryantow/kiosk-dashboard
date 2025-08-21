@@ -1,0 +1,16 @@
+total 488
+drwxr-xr-x   15 ryantow  staff     480 Aug 19 15:35 .
+drwxr-xr-x    5 ryantow  staff     160 Aug 19 15:34 ..
+-rw-r--r--    1 ryantow  staff     480 Aug 19 15:33 .gitignore
+-rw-r--r--    1 ryantow  staff       0 Aug 19 15:35 dir.txt
+-rw-r--r--    1 ryantow  staff     393 Aug 19 15:33 eslint.config.mjs
+-rw-r--r--    1 ryantow  staff     211 Aug 19 15:33 next-env.d.ts
+-rw-r--r--    1 ryantow  staff     133 Aug 19 15:33 next.config.ts
+drwxr-xr-x  286 ryantow  staff    9152 Aug 19 15:33 node_modules
+-rw-r--r--    1 ryantow  staff  213136 Aug 19 15:33 package-lock.json
+-rw-r--r--    1 ryantow  staff     582 Aug 19 15:33 package.json
+-rw-r--r--    1 ryantow  staff      81 Aug 19 15:33 postcss.config.mjs
+drwxr-xr-x    7 ryantow  staff     224 Aug 19 15:33 public
+-rw-r--r--    1 ryantow  staff    1450 Aug 19 15:33 README.md
+drwxr-xr-x    3 ryantow  staff      96 Aug 19 15:33 src
+-rw-r--r--    1 ryantow  staff     602 Aug 19 15:33 tsconfig.json
