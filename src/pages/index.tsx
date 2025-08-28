@@ -3,6 +3,7 @@ import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/router";
 
+/* -------------------- Types -------------------- */
 type Kiosk = { kiosk_id: string; kiosk_name: string };
 type Row = {
   kiosk_id: string;
@@ -29,7 +30,7 @@ type ErrProps = {
 };
 type Props = OkProps | ErrProps;
 
-//adds summary table function
+/* -------------------- Helpers -------------------- */
 function computeTotals(rows: Row[]) {
   return rows.reduce(
     (acc, r) => {
@@ -37,9 +38,8 @@ function computeTotals(rows: Row[]) {
       acc.completed += r.completed || 0;
       acc.abandoned += r.abandoned || 0;
       acc.restart_clicks += r.restart_clicks || 0;
-      // for weighted avg, weight each kiosk’s avg_ms by its session count (started)
       if (r.avg_ms !== null && r.started > 0) {
-        acc.weightedMsSum += r.avg_ms * r.started;
+        acc.weightedMsSum += r.avg_ms * r.started; // weight by started
         acc.weightedCount += r.started;
       }
       return acc;
@@ -47,12 +47,11 @@ function computeTotals(rows: Row[]) {
     { started: 0, completed: 0, abandoned: 0, restart_clicks: 0, weightedMsSum: 0, weightedCount: 0 }
   );
 }
-
 function fmtPct(x: number) {
   return `${(x * 100).toFixed(1)}%`;
 }
 
-// ---------- SSR: fetch DIRECTLY from Railway ----------
+/* -------------------- SSR: fetch DIRECT from Railway -------------------- */
 export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
   const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
   const KEY = (process.env.API_KEY || "").trim();
@@ -111,6 +110,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) =
   }
 };
 
+/* -------------------- Page -------------------- */
 export default function DashboardPage(props: InferGetServerSidePropsType<typeof getServerSideProps>) {
   return (
     <>
@@ -133,7 +133,7 @@ export default function DashboardPage(props: InferGetServerSidePropsType<typeof 
   );
 }
 
-// ---------- Error Panel ----------
+/* -------------------- Error Panel -------------------- */
 function ErrorPanel({
   error,
   date_from,
@@ -171,7 +171,7 @@ function ErrorPanel({
   );
 }
 
-// ---------- Metrics View ----------
+/* -------------------- Main View -------------------- */
 function MetricsView({
   kiosks,
   rows,
@@ -197,14 +197,14 @@ function MetricsView({
     return m;
   }, [kiosks]);
 
-  // totals
+  // totals + rates + weighted avg
   const totals = useMemo(() => computeTotals(rows), [rows]);
+  const completionRate = totals.started ? totals.completed / totals.started : 0;
+  const abandonmentRate = totals.started ? totals.abandoned / totals.started : 0;
+  const restartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
+  const weightedAvgSec =
+    totals.weightedCount > 0 ? (totals.weightedMsSum / totals.weightedCount) / 1000 : null;
 
-const completionRate = totals.started ? totals.completed / totals.started : 0;
-const abandonmentRate = totals.started ? totals.abandoned / totals.started : 0;
-const restartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
-const weightedAvgSec =
-  totals.weightedCount > 0 ? (totals.weightedMsSum / totals.weightedCount) / 1000 : null;
   // csv link with filters
   const csvHref = (() => {
     const qs = new URLSearchParams();
@@ -235,48 +235,50 @@ const weightedAvgSec =
         </Header>
 
         {/* Summary Bar */}
-<div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-    <div className="text-xs font-medium text-gray-500">Total Sessions Started</div>
-    <div className="mt-1 text-2xl font-semibold tabular-nums">{totals.started}</div>
-  </div>
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-medium text-gray-500">Total Sessions Started</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums">{totals.started}</div>
+          </div>
 
-  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-    <div className="flex items-center justify-between">
-      <div className="text-xs font-medium text-gray-500">Completed</div>
-      <div className="text-xs text-gray-400">Completion Rate</div>
-    </div>
-    <div className="mt-1 flex items-end justify-between">
-      <div className="text-2xl font-semibold tabular-nums">{totals.completed}</div>
-      <div className="text-base font-medium text-gray-700">{fmtPct(completionRate)}</div>
-    </div>
-  </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-medium text-gray-500">Completed</div>
+              <div className="text-xs text-gray-400">Completion Rate</div>
+            </div>
+            <div className="mt-1 flex items-end justify-between">
+              <div className="text-2xl font-semibold tabular-nums">{totals.completed}</div>
+              <div className="text-base font-medium text-gray-700">{fmtPct(completionRate)}</div>
+            </div>
+          </div>
 
-  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-    <div className="flex items-center justify-between">
-      <div className="text-xs font-medium text-gray-500">Abandoned</div>
-      <div className="text-xs text-gray-400">Abandonment Rate</div>
-    </div>
-    <div className="mt-1 flex items-end justify-between">
-      <div className="text-2xl font-semibold tabular-nums">{totals.abandoned}</div>
-      <div className="text-base font-medium text-gray-700">{fmtPct(abandonmentRate)}</div>
-    </div>
-  </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-medium text-gray-500">Abandoned</div>
+              <div className="text-xs text-gray-400">Abandonment Rate</div>
+            </div>
+            <div className="mt-1 flex items-end justify-between">
+              <div className="text-2xl font-semibold tabular-nums">{totals.abandoned}</div>
+              <div className="text-base font-medium text-gray-700">{fmtPct(abandonmentRate)}</div>
+            </div>
+          </div>
 
-  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-    <div className="flex items-center justify-between">
-      <div className="text-xs font-medium text-gray-500">Restart Clicks</div>
-      <div className="text-xs text-gray-400">Restart Rate</div>
-    </div>
-    <div className="mt-1 flex items-end justify-between">
-      <div className="text-2xl font-semibold tabular-nums">{totals.restart_clicks}</div>
-      <div className="text-base font-medium text-gray-700">{fmtPct(restartRate)}</div>
-    </div>
-    <div className="mt-2 text-xs text-gray-500">
-      {weightedAvgSec !== null ? `Weighted Avg Sec: ${weightedAvgSec.toFixed(1)}` : "Weighted Avg Sec: —"}
-    </div>
-  </div>
-</div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-medium text-gray-500">Restart Clicks</div>
+              <div className="text-xs text-gray-400">Restart Rate</div>
+            </div>
+            <div className="mt-1 flex items-end justify-between">
+              <div className="text-2xl font-semibold tabular-nums">{totals.restart_clicks}</div>
+              <div className="text-base font-medium text-gray-700">{fmtPct(restartRate)}</div>
+            </div>
+            <div className="mt-2 text-xs text-gray-500">
+              {weightedAvgSec !== null ? `Weighted Avg Sec: ${weightedAvgSec.toFixed(1)}` : "Weighted Avg Sec: —"}
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
         <section className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-md">
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-gray-100 text-gray-700">
@@ -315,8 +317,10 @@ const weightedAvgSec =
                 <td className="p-3 text-right tabular-nums">{totals.completed}</td>
                 <td className="p-3 text-right tabular-nums">{totals.abandoned}</td>
                 <td className="p-3 text-right tabular-nums">{totals.restart_clicks}</td>
-                <td className="p-3 text-right tabular-nums">{(overallRestartRate * 100).toFixed(1)}%</td>
-                <td className="p-3 text-right">—</td>
+                <td className="p-3 text-right tabular-nums">{fmtPct(restartRate)}</td>
+                <td className="p-3 text-right">
+                  {weightedAvgSec !== null ? weightedAvgSec.toFixed(1) : "—"}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -330,7 +334,7 @@ const weightedAvgSec =
   );
 }
 
-// ---------- Header (styled date inputs + buttons) ----------
+/* -------------------- Header -------------------- */
 function Header({
   date_from,
   date_to,
