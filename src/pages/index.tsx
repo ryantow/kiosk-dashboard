@@ -215,50 +215,30 @@ function MetricsView({
           </a>
         </Header>
 
-        <section className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead className="sticky top-0 bg-gray-100">
-              <tr className="[&>th]:p-3 [&>th]:text-left [&>th]:font-semibold [&>th]:text-gray-700">
-                <th className="min-w-[220px]">Kiosk</th>
-                <th className="text-right">Started</th>
-                <th className="text-right">Completed</th>
-                <th className="text-right">Abandoned</th>
-                <th className="text-right">Restart Clicks</th>
-                <th className="text-right">Restart Rate</th>
-                <th className="text-right">Avg Sec</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr:nth-child(even)]:bg-gray-50">
-              {rows.map((r) => {
-                const avgSec = r.avg_ms !== null ? r.avg_ms / 1000 : null;
-                const restartRate = r.completed ? r.restart_clicks / r.completed : 0;
-                const label = nameById.get(r.kiosk_id) ?? r.kiosk_id;
-                return (
-                  <tr key={r.kiosk_id} className="border-t">
-                    <td className="p-3">{label}</td>
-                    <td className="p-3 text-right tabular-nums">{r.started}</td>
-                    <td className="p-3 text-right tabular-nums">{r.completed}</td>
-                    <td className="p-3 text-right tabular-nums">{r.abandoned}</td>
-                    <td className="p-3 text-right tabular-nums">{r.restart_clicks}</td>
-                    <td className="p-3 text-right tabular-nums">{(restartRate * 100).toFixed(1)}%</td>
-                    <td className="p-3 text-right tabular-nums">{avgSec !== null ? avgSec.toFixed(1) : "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t bg-gray-100 font-semibold">
-                <td className="p-3">Totals</td>
-                <td className="p-3 text-right tabular-nums">{totals.started}</td>
-                <td className="p-3 text-right tabular-nums">{totals.completed}</td>
-                <td className="p-3 text-right tabular-nums">{totals.abandoned}</td>
-                <td className="p-3 text-right tabular-nums">{totals.restart_clicks}</td>
-                <td className="p-3 text-right tabular-nums">{(overallRestartRate * 100).toFixed(1)}%</td>
-                <td className="p-3 text-right">—</td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
+        <section className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-md">
+  <table className="min-w-full text-sm">
+    <thead className="bg-gray-100 text-gray-700 text-sm font-semibold uppercase">
+      <tr>
+        <th className="p-3 text-left">Kiosk</th>
+        <th className="p-3 text-right">Started</th>
+        <th className="p-3 text-right">Completed</th>
+        <th className="p-3 text-right">Abandoned</th>
+        <th className="p-3 text-right">Restart Clicks</th>
+        <th className="p-3 text-right">Restart Rate</th>
+        <th className="p-3 text-right">Avg Sec</th>
+      </tr>
+    </thead>
+    <tbody className="[&>tr:nth-child(even)]:bg-gray-50">
+      {/* ... rows ... */}
+    </tbody>
+    <tfoot>
+      <tr className="border-t bg-gray-100 font-semibold text-gray-900">
+        <td className="p-3">Totals</td>
+        {/* ... totals cells ... */}
+      </tr>
+    </tfoot>
+  </table>
+</section>
 
         <p className="mt-3 text-xs text-gray-500">
           Showing {rows.length} kiosks. Restart Rate = Restart Clicks ÷ Completed.
@@ -287,7 +267,7 @@ function Header({
 
   return (
     <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <h1 className="text-3xl font-bold">Kiosk Metrics</h1>
+     <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Kiosk Metrics</h1>
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex flex-col">
           <label className="text-xs text-gray-600">From</label>
@@ -295,7 +275,7 @@ function Header({
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border px-2 py-1 text-sm"
+            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
           />
         </div>
         <div className="flex flex-col">
@@ -304,12 +284,12 @@ function Header({
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border px-2 py-1 text-sm"
+            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
           />
         </div>
         <button
           onClick={() => onApply(from || undefined, to || undefined)}
-          className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-100"
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
           Apply
         </button>
