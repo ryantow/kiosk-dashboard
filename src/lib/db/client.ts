@@ -1,8 +1,7 @@
 import { Pool } from "pg";
 
 declare global {
-  // Keep a global for hot-reload/serverless reuse; no eslint disable needed
-  // eslint rules won't complain in ambient context
+  // eslint-disable-next-line no-var
   var __pgPool__: Pool | undefined;
 }
 
@@ -14,8 +13,7 @@ export function getPool(): Pool {
 
   const pool = new Pool({
     connectionString,
-    // If your provider requires TLS and your URL lacks it, uncomment:
-    // ssl: { rejectUnauthorized: false },
+    // ssl: { rejectUnauthorized: false }, // enable if your URL lacks sslmode=require
     max: 3,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
