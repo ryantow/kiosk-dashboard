@@ -29,14 +29,13 @@ type ErrProps = {
 };
 type Props = OkProps | ErrProps;
 
-// ---- Server-side: fetch DIRECTLY from Railway (bypass /api proxies) ----
+// ---------- SSR: fetch DIRECTLY from Railway ----------
 export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
   const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
   const KEY = (process.env.API_KEY || "").trim();
 
-  // read optional dates
   const date_from = typeof query.date_from === "string" ? query.date_from : undefined;
-  const date_to   = typeof query.date_to   === "string" ? query.date_to   : undefined;
+  const date_to = typeof query.date_to === "string" ? query.date_to : undefined;
 
   const qs = new URLSearchParams();
   if (date_from) qs.set("date_from", date_from);
@@ -111,8 +110,11 @@ export default function DashboardPage(props: InferGetServerSidePropsType<typeof 
   );
 }
 
+// ---------- Error Panel ----------
 function ErrorPanel({
-  error, date_from, date_to,
+  error,
+  date_from,
+  date_to,
 }: {
   error: ErrProps["error"];
   date_from?: string | null;
@@ -120,8 +122,8 @@ function ErrorPanel({
 }) {
   const router = useRouter();
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="mx-auto max-w-5xl p-6">
+    <main className="min-h-screen bg-gray-50 font-sans text-gray-900">
+      <div className="mx-auto max-w-7xl px-6 py-8">
         <Header
           date_from={date_from ?? undefined}
           date_to={date_to ?? undefined}
@@ -132,13 +134,13 @@ function ErrorPanel({
             router.push({ pathname: "/", query: Object.fromEntries(qs.entries()) });
           }}
         />
-        <div className="mt-4 rounded-lg border bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold mb-2">Dashboard Error</h2>
-          <pre className="whitespace-pre-wrap rounded border bg-gray-50 p-3 text-sm">
+        <div className="mt-4 rounded-xl border border-red-200 bg-white p-4 shadow-md">
+          <h2 className="mb-2 text-lg font-semibold text-red-700">Dashboard Error</h2>
+          <pre className="whitespace-pre-wrap rounded border bg-red-50 p-3 text-sm text-red-900">
             {JSON.stringify(error, null, 2)}
           </pre>
           <p className="mt-4 text-sm text-gray-600">
-            Check API env vars (<code>API_BASE_URL</code>, <code>API_KEY</code>) or the Railway API status.
+            Check API env vars (<code>API_BASE_URL</code>, <code>API_KEY</code>) or Railway API status.
           </p>
         </div>
       </div>
@@ -146,8 +148,12 @@ function ErrorPanel({
   );
 }
 
+// ---------- Metrics View ----------
 function MetricsView({
-  kiosks, rows, date_from, date_to,
+  kiosks,
+  rows,
+  date_from,
+  date_to,
 }: {
   kiosks: Kiosk[];
   rows: Row[];
@@ -161,14 +167,14 @@ function MetricsView({
   useEffect(() => setFrom(date_from ?? ""), [date_from]);
   useEffect(() => setTo(date_to ?? ""), [date_to]);
 
-  // Map kiosk_id -> friendly name
+  // map ids to names
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const k of kiosks) m.set(k.kiosk_id, k.kiosk_name);
     return m;
   }, [kiosks]);
 
-  // Totals
+  // totals
   const totals = useMemo(
     () =>
       rows.reduce(
@@ -185,7 +191,7 @@ function MetricsView({
   );
   const overallRestartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
 
-  // build CSV link with same dates
+  // csv link with filters
   const csvHref = (() => {
     const qs = new URLSearchParams();
     if (from) qs.set("date_from", from);
@@ -194,8 +200,8 @@ function MetricsView({
   })();
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="mx-auto max-w-6xl px-4 py-6">
+    <main className="min-h-screen bg-gray-50 font-sans text-gray-900">
+      <div className="mx-auto max-w-[1200px] px-6 py-8">
         <Header
           date_from={from || undefined}
           date_to={to || undefined}
@@ -208,39 +214,58 @@ function MetricsView({
         >
           <a
             href={csvHref}
-            className="rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
-            aria-label="Export CSV"
+            className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             Export CSV
           </a>
         </Header>
 
-        <section className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-md">
-  <table className="min-w-full text-sm">
-    <thead className="bg-gray-100 text-gray-700 text-sm font-semibold uppercase">
-      <tr>
-        <th className="p-3 text-left">Kiosk</th>
-        <th className="p-3 text-right">Started</th>
-        <th className="p-3 text-right">Completed</th>
-        <th className="p-3 text-right">Abandoned</th>
-        <th className="p-3 text-right">Restart Clicks</th>
-        <th className="p-3 text-right">Restart Rate</th>
-        <th className="p-3 text-right">Avg Sec</th>
-      </tr>
-    </thead>
-    <tbody className="[&>tr:nth-child(even)]:bg-gray-50">
-      {/* ... rows ... */}
-    </tbody>
-    <tfoot>
-      <tr className="border-t bg-gray-100 font-semibold text-gray-900">
-        <td className="p-3">Totals</td>
-        {/* ... totals cells ... */}
-      </tr>
-    </tfoot>
-  </table>
-</section>
+        <section className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-md">
+          <table className="min-w-full text-sm">
+            <thead className="sticky top-0 bg-gray-100 text-gray-700">
+              <tr className="uppercase tracking-wide">
+                <th className="p-3 text-left">Kiosk</th>
+                <th className="p-3 text-right">Started</th>
+                <th className="p-3 text-right">Completed</th>
+                <th className="p-3 text-right">Abandoned</th>
+                <th className="p-3 text-right">Restart Clicks</th>
+                <th className="p-3 text-right">Restart Rate</th>
+                <th className="p-3 text-right">Avg Sec</th>
+              </tr>
+            </thead>
+            <tbody className="[&>tr:nth-child(even)]:bg-gray-50">
+              {rows.map((r) => {
+                const avgSec = r.avg_ms !== null ? r.avg_ms / 1000 : null;
+                const restartRate = r.completed ? r.restart_clicks / r.completed : 0;
+                const label = nameById.get(r.kiosk_id) ?? r.kiosk_id;
+                return (
+                  <tr key={r.kiosk_id} className="border-t border-gray-200">
+                    <td className="p-3">{label}</td>
+                    <td className="p-3 text-right tabular-nums">{r.started}</td>
+                    <td className="p-3 text-right tabular-nums">{r.completed}</td>
+                    <td className="p-3 text-right tabular-nums">{r.abandoned}</td>
+                    <td className="p-3 text-right tabular-nums">{r.restart_clicks}</td>
+                    <td className="p-3 text-right tabular-nums">{(restartRate * 100).toFixed(1)}%</td>
+                    <td className="p-3 text-right tabular-nums">{avgSec !== null ? avgSec.toFixed(1) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-300 bg-gray-100 font-semibold text-gray-900">
+                <td className="p-3">Totals</td>
+                <td className="p-3 text-right tabular-nums">{totals.started}</td>
+                <td className="p-3 text-right tabular-nums">{totals.completed}</td>
+                <td className="p-3 text-right tabular-nums">{totals.abandoned}</td>
+                <td className="p-3 text-right tabular-nums">{totals.restart_clicks}</td>
+                <td className="p-3 text-right tabular-nums">{(overallRestartRate * 100).toFixed(1)}%</td>
+                <td className="p-3 text-right">—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
 
-        <p className="mt-3 text-xs text-gray-500">
+        <p className="mt-4 text-xs text-gray-500">
           Showing {rows.length} kiosks. Restart Rate = Restart Clicks ÷ Completed.
         </p>
       </div>
@@ -248,6 +273,7 @@ function MetricsView({
   );
 }
 
+// ---------- Header (styled date inputs + buttons) ----------
 function Header({
   date_from,
   date_to,
@@ -266,16 +292,16 @@ function Header({
   useEffect(() => setTo(date_to ?? ""), [date_to]);
 
   return (
-    <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-     <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Kiosk Metrics</h1>
-      <div className="flex flex-wrap items-end gap-2">
+    <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <h1 className="text-4xl font-bold tracking-tight text-gray-900">Kiosk Metrics</h1>
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col">
           <label className="text-xs text-gray-600">From</label>
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring focus:ring-blue-200"
           />
         </div>
         <div className="flex flex-col">
@@ -284,7 +310,7 @@ function Header({
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring focus:ring-blue-200"
           />
         </div>
         <button
