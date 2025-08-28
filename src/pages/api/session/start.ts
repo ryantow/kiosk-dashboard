@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { insertSessionEvent } from "@/lib/db/analytics"; // same helper as others
+import { insertSessionEvent } from "../../../lib/db/analytics"; // same helper as others
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();

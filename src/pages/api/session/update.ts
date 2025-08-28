@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { insertSessionEvent } from "@/lib/db/analytics";
+import { insertSessionEvent } from "../../../lib/db/analytics";
 
 type UpdateEventType = "session_complete" | "session_abandon" | "session_restart_click";
 
