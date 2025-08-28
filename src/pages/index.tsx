@@ -29,6 +29,29 @@ type ErrProps = {
 };
 type Props = OkProps | ErrProps;
 
+//adds summary table function
+function computeTotals(rows: Row[]) {
+  return rows.reduce(
+    (acc, r) => {
+      acc.started += r.started || 0;
+      acc.completed += r.completed || 0;
+      acc.abandoned += r.abandoned || 0;
+      acc.restart_clicks += r.restart_clicks || 0;
+      // for weighted avg, weight each kiosk’s avg_ms by its session count (started)
+      if (r.avg_ms !== null && r.started > 0) {
+        acc.weightedMsSum += r.avg_ms * r.started;
+        acc.weightedCount += r.started;
+      }
+      return acc;
+    },
+    { started: 0, completed: 0, abandoned: 0, restart_clicks: 0, weightedMsSum: 0, weightedCount: 0 }
+  );
+}
+
+function fmtPct(x: number) {
+  return `${(x * 100).toFixed(1)}%`;
+}
+
 // ---------- SSR: fetch DIRECTLY from Railway ----------
 export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
   const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
@@ -175,22 +198,13 @@ function MetricsView({
   }, [kiosks]);
 
   // totals
-  const totals = useMemo(
-    () =>
-      rows.reduce(
-        (acc, r) => {
-          acc.started += r.started || 0;
-          acc.completed += r.completed || 0;
-          acc.abandoned += r.abandoned || 0;
-          acc.restart_clicks += r.restart_clicks || 0;
-          return acc;
-        },
-        { started: 0, completed: 0, abandoned: 0, restart_clicks: 0 }
-      ),
-    [rows]
-  );
-  const overallRestartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
+  const totals = useMemo(() => computeTotals(rows), [rows]);
 
+const completionRate = totals.started ? totals.completed / totals.started : 0;
+const abandonmentRate = totals.started ? totals.abandoned / totals.started : 0;
+const restartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
+const weightedAvgSec =
+  totals.weightedCount > 0 ? (totals.weightedMsSum / totals.weightedCount) / 1000 : null;
   // csv link with filters
   const csvHref = (() => {
     const qs = new URLSearchParams();
@@ -220,6 +234,49 @@ function MetricsView({
           </a>
         </Header>
 
+        {/* Summary Bar */}
+<div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="text-xs font-medium text-gray-500">Total Sessions Started</div>
+    <div className="mt-1 text-2xl font-semibold tabular-nums">{totals.started}</div>
+  </div>
+
+  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center justify-between">
+      <div className="text-xs font-medium text-gray-500">Completed</div>
+      <div className="text-xs text-gray-400">Completion Rate</div>
+    </div>
+    <div className="mt-1 flex items-end justify-between">
+      <div className="text-2xl font-semibold tabular-nums">{totals.completed}</div>
+      <div className="text-base font-medium text-gray-700">{fmtPct(completionRate)}</div>
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center justify-between">
+      <div className="text-xs font-medium text-gray-500">Abandoned</div>
+      <div className="text-xs text-gray-400">Abandonment Rate</div>
+    </div>
+    <div className="mt-1 flex items-end justify-between">
+      <div className="text-2xl font-semibold tabular-nums">{totals.abandoned}</div>
+      <div className="text-base font-medium text-gray-700">{fmtPct(abandonmentRate)}</div>
+    </div>
+  </div>
+
+  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center justify-between">
+      <div className="text-xs font-medium text-gray-500">Restart Clicks</div>
+      <div className="text-xs text-gray-400">Restart Rate</div>
+    </div>
+    <div className="mt-1 flex items-end justify-between">
+      <div className="text-2xl font-semibold tabular-nums">{totals.restart_clicks}</div>
+      <div className="text-base font-medium text-gray-700">{fmtPct(restartRate)}</div>
+    </div>
+    <div className="mt-2 text-xs text-gray-500">
+      {weightedAvgSec !== null ? `Weighted Avg Sec: ${weightedAvgSec.toFixed(1)}` : "Weighted Avg Sec: —"}
+    </div>
+  </div>
+</div>
         <section className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-md">
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-gray-100 text-gray-700">
