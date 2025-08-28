@@ -1,6 +1,7 @@
 import Head from "next/head";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/router";
 
 type Kiosk = { kiosk_id: string; kiosk_name: string };
 type Row = {
@@ -12,20 +13,43 @@ type Row = {
   avg_ms: number | null;
 };
 
-type OkProps = { kiosks: Kiosk[]; rows: Row[]; error?: undefined };
-type ErrProps = { kiosks: []; rows: []; error: { msg: string; kiosksStatus?: number; metricsStatus?: number; detail?: string } };
+type OkProps = {
+  kiosks: Kiosk[];
+  rows: Row[];
+  date_from?: string | null;
+  date_to?: string | null;
+  error?: undefined;
+};
+type ErrProps = {
+  kiosks: [];
+  rows: [];
+  date_from?: string | null;
+  date_to?: string | null;
+  error: { msg: string; kiosksStatus?: number; metricsStatus?: number; detail?: string };
+};
 type Props = OkProps | ErrProps;
 
 // ---- Server-side: fetch DIRECTLY from Railway (bypass /api proxies) ----
-export const getServerSideProps: GetServerSideProps<Props> = async () => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
   const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
   const KEY = (process.env.API_KEY || "").trim();
+
+  // read optional dates
+  const date_from = typeof query.date_from === "string" ? query.date_from : undefined;
+  const date_to   = typeof query.date_to   === "string" ? query.date_to   : undefined;
+
+  const qs = new URLSearchParams();
+  if (date_from) qs.set("date_from", date_from);
+  if (date_to) qs.set("date_to", date_to);
+  const q = qs.toString() ? `?${qs.toString()}` : "";
 
   if (!BASE || !KEY) {
     return {
       props: {
         kiosks: [],
         rows: [],
+        date_from: date_from ?? null,
+        date_to: date_to ?? null,
         error: { msg: "Missing API envs on the server", detail: `API_BASE_URL:${!!BASE} API_KEY:${!!KEY}` },
       },
     };
@@ -34,7 +58,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async () => {
   try {
     const [kiosksRes, metricsRes] = await Promise.all([
       fetch(`${BASE}/kiosks`, { headers: { Authorization: `Bearer ${KEY}` } }),
-      fetch(`${BASE}/metrics/by-kiosk`, { headers: { Authorization: `Bearer ${KEY}` } }),
+      fetch(`${BASE}/metrics/by-kiosk${q}`, { headers: { Authorization: `Bearer ${KEY}` } }),
     ]);
 
     if (!kiosksRes.ok || !metricsRes.ok) {
@@ -42,6 +66,8 @@ export const getServerSideProps: GetServerSideProps<Props> = async () => {
         props: {
           kiosks: [],
           rows: [],
+          date_from: date_from ?? null,
+          date_to: date_to ?? null,
           error: { msg: "Railway API failed", kiosksStatus: kiosksRes.status, metricsStatus: metricsRes.status },
         },
       };
@@ -49,12 +75,14 @@ export const getServerSideProps: GetServerSideProps<Props> = async () => {
 
     const kiosks: Kiosk[] = await kiosksRes.json();
     const rows: Row[] = await metricsRes.json();
-    return { props: { kiosks, rows } };
+    return { props: { kiosks, rows, date_from: date_from ?? null, date_to: date_to ?? null } };
   } catch (e) {
     return {
       props: {
         kiosks: [],
         rows: [],
+        date_from: date_from ?? null,
+        date_to: date_to ?? null,
         error: { msg: e instanceof Error ? e.message : String(e) },
       },
     };
@@ -70,31 +98,69 @@ export default function DashboardPage(props: InferGetServerSidePropsType<typeof 
       </Head>
 
       {"error" in props && props.error ? (
-        <ErrorPanel error={props.error} />
+        <ErrorPanel error={props.error} date_from={props.date_from} date_to={props.date_to} />
       ) : (
-        <MetricsTable kiosks={(props as OkProps).kiosks} rows={(props as OkProps).rows} />
+        <MetricsView
+          kiosks={(props as OkProps).kiosks}
+          rows={(props as OkProps).rows}
+          date_from={props.date_from ?? undefined}
+          date_to={props.date_to ?? undefined}
+        />
       )}
     </>
   );
 }
 
-function ErrorPanel({ error }: { error: ErrProps["error"] }) {
+function ErrorPanel({
+  error, date_from, date_to,
+}: {
+  error: ErrProps["error"];
+  date_from?: string | null;
+  date_to?: string | null;
+}) {
+  const router = useRouter();
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="mx-auto max-w-3xl p-6">
-        <h1 className="text-xl font-semibold mb-3">Dashboard Error</h1>
-        <pre className="whitespace-pre-wrap rounded border bg-white p-3 text-sm">
-          {JSON.stringify(error, null, 2)}
-        </pre>
-        <p className="mt-4 text-sm">
-          Check your Railway API and Vercel env vars (<code>API_BASE_URL</code>, <code>API_KEY</code>). This page fetches Railway directly on the server.
-        </p>
+      <div className="mx-auto max-w-5xl p-6">
+        <Header
+          date_from={date_from ?? undefined}
+          date_to={date_to ?? undefined}
+          onApply={(f, t) => {
+            const qs = new URLSearchParams();
+            if (f) qs.set("date_from", f);
+            if (t) qs.set("date_to", t);
+            router.push({ pathname: "/", query: Object.fromEntries(qs.entries()) });
+          }}
+        />
+        <div className="mt-4 rounded-lg border bg-white p-4 shadow-sm">
+          <h2 className="text-lg font-semibold mb-2">Dashboard Error</h2>
+          <pre className="whitespace-pre-wrap rounded border bg-gray-50 p-3 text-sm">
+            {JSON.stringify(error, null, 2)}
+          </pre>
+          <p className="mt-4 text-sm text-gray-600">
+            Check API env vars (<code>API_BASE_URL</code>, <code>API_KEY</code>) or the Railway API status.
+          </p>
+        </div>
       </div>
     </main>
   );
 }
 
-function MetricsTable({ kiosks, rows }: { kiosks: Kiosk[]; rows: Row[] }) {
+function MetricsView({
+  kiosks, rows, date_from, date_to,
+}: {
+  kiosks: Kiosk[];
+  rows: Row[];
+  date_from?: string;
+  date_to?: string;
+}) {
+  const router = useRouter();
+  const [from, setFrom] = useState(date_from ?? "");
+  const [to, setTo] = useState(date_to ?? "");
+
+  useEffect(() => setFrom(date_from ?? ""), [date_from]);
+  useEffect(() => setTo(date_to ?? ""), [date_to]);
+
   // Map kiosk_id -> friendly name
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -117,65 +183,78 @@ function MetricsTable({ kiosks, rows }: { kiosks: Kiosk[]; rows: Row[] }) {
       ),
     [rows]
   );
-
   const overallRestartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
+
+  // build CSV link with same dates
+  const csvHref = (() => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("date_from", from);
+    if (to) qs.set("date_to", to);
+    return `/api/csv${qs.toString() ? `?${qs.toString()}` : ""}`;
+  })();
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900">
       <div className="mx-auto max-w-6xl px-4 py-6">
-        <header className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Kiosk Metrics</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => (window.location.href = "/api/csv")}
-              className="rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
-              aria-label="Export CSV"
-            >
-              Export CSV
-            </button>
-          </div>
-        </header>
+        <Header
+          date_from={from || undefined}
+          date_to={to || undefined}
+          onApply={(f, t) => {
+            const qs = new URLSearchParams();
+            if (f) qs.set("date_from", f);
+            if (t) qs.set("date_to", t);
+            router.push({ pathname: "/", query: Object.fromEntries(qs.entries()) });
+          }}
+        >
+          <a
+            href={csvHref}
+            className="rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
+            aria-label="Export CSV"
+          >
+            Export CSV
+          </a>
+        </Header>
 
-        <section className="overflow-x-auto rounded-lg border bg-white">
+        <section className="overflow-x-auto rounded-xl border bg-white shadow-sm">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-100 text-left">
-              <tr>
-                <th className="p-2">Kiosk</th>
-                <th className="p-2 text-right">Started</th>
-                <th className="p-2 text-right">Completed</th>
-                <th className="p-2 text-right">Abandoned</th>
-                <th className="p-2 text-right">Restart Clicks</th>
-                <th className="p-2 text-right">Restart Rate</th>
-                <th className="p-2 text-right">Avg Sec</th>
+            <thead className="sticky top-0 bg-gray-100">
+              <tr className="[&>th]:p-3 [&>th]:text-left [&>th]:font-semibold [&>th]:text-gray-700">
+                <th className="min-w-[220px]">Kiosk</th>
+                <th className="text-right">Started</th>
+                <th className="text-right">Completed</th>
+                <th className="text-right">Abandoned</th>
+                <th className="text-right">Restart Clicks</th>
+                <th className="text-right">Restart Rate</th>
+                <th className="text-right">Avg Sec</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="[&>tr:nth-child(even)]:bg-gray-50">
               {rows.map((r) => {
                 const avgSec = r.avg_ms !== null ? r.avg_ms / 1000 : null;
                 const restartRate = r.completed ? r.restart_clicks / r.completed : 0;
                 const label = nameById.get(r.kiosk_id) ?? r.kiosk_id;
                 return (
                   <tr key={r.kiosk_id} className="border-t">
-                    <td className="p-2">{label}</td>
-                    <td className="p-2 text-right tabular-nums">{r.started}</td>
-                    <td className="p-2 text-right tabular-nums">{r.completed}</td>
-                    <td className="p-2 text-right tabular-nums">{r.abandoned}</td>
-                    <td className="p-2 text-right tabular-nums">{r.restart_clicks}</td>
-                    <td className="p-2 text-right tabular-nums">{(restartRate * 100).toFixed(1)}%</td>
-                    <td className="p-2 text-right tabular-nums">{avgSec !== null ? avgSec.toFixed(1) : "—"}</td>
+                    <td className="p-3">{label}</td>
+                    <td className="p-3 text-right tabular-nums">{r.started}</td>
+                    <td className="p-3 text-right tabular-nums">{r.completed}</td>
+                    <td className="p-3 text-right tabular-nums">{r.abandoned}</td>
+                    <td className="p-3 text-right tabular-nums">{r.restart_clicks}</td>
+                    <td className="p-3 text-right tabular-nums">{(restartRate * 100).toFixed(1)}%</td>
+                    <td className="p-3 text-right tabular-nums">{avgSec !== null ? avgSec.toFixed(1) : "—"}</td>
                   </tr>
                 );
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t bg-gray-50 font-semibold">
-                <td className="p-2">Totals</td>
-                <td className="p-2 text-right tabular-nums">{totals.started}</td>
-                <td className="p-2 text-right tabular-nums">{totals.completed}</td>
-                <td className="p-2 text-right tabular-nums">{totals.abandoned}</td>
-                <td className="p-2 text-right tabular-nums">{totals.restart_clicks}</td>
-                <td className="p-2 text-right tabular-nums">{(overallRestartRate * 100).toFixed(1)}%</td>
-                <td className="p-2 text-right">—</td>
+              <tr className="border-t bg-gray-100 font-semibold">
+                <td className="p-3">Totals</td>
+                <td className="p-3 text-right tabular-nums">{totals.started}</td>
+                <td className="p-3 text-right tabular-nums">{totals.completed}</td>
+                <td className="p-3 text-right tabular-nums">{totals.abandoned}</td>
+                <td className="p-3 text-right tabular-nums">{totals.restart_clicks}</td>
+                <td className="p-3 text-right tabular-nums">{(overallRestartRate * 100).toFixed(1)}%</td>
+                <td className="p-3 text-right">—</td>
               </tr>
             </tfoot>
           </table>
@@ -186,5 +265,56 @@ function MetricsTable({ kiosks, rows }: { kiosks: Kiosk[]; rows: Row[] }) {
         </p>
       </div>
     </main>
+  );
+}
+
+function Header({
+  date_from,
+  date_to,
+  onApply,
+  children,
+}: {
+  date_from?: string;
+  date_to?: string;
+  onApply: (from?: string, to?: string) => void;
+  children?: React.ReactNode;
+}) {
+  const [from, setFrom] = useState(date_from ?? "");
+  const [to, setTo] = useState(date_to ?? "");
+
+  useEffect(() => setFrom(date_from ?? ""), [date_from]);
+  useEffect(() => setTo(date_to ?? ""), [date_to]);
+
+  return (
+    <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <h1 className="text-3xl font-bold">Kiosk Metrics</h1>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-600">From</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="rounded-md border px-2 py-1 text-sm"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-600">To (exclusive)</label>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="rounded-md border px-2 py-1 text-sm"
+          />
+        </div>
+        <button
+          onClick={() => onApply(from || undefined, to || undefined)}
+          className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-100"
+        >
+          Apply
+        </button>
+        {children}
+      </div>
+    </header>
   );
 }
