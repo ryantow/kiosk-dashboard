@@ -1,90 +1,143 @@
-import { useEffect, useMemo, useState } from "react";
+import Head from "next/head";
+import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
+import { useMemo } from "react";
 
-type MetricsRow = { kiosk_id: string; started: number; completed: number; abandoned: number; avg_ms: number | null; };
 type Kiosk = { kiosk_id: string; kiosk_name: string };
+type Row = {
+  kiosk_id: string;
+  started: number;
+  completed: number;
+  abandoned: number;
+  restart_clicks: number;
+  avg_ms: number | null;
+};
 
-export default function Dashboard() {
-  const [rows, setRows] = useState<MetricsRow[]>([]);
-  const [kiosks, setKiosks] = useState<Kiosk[]>([]);
-  const [from, setFrom] = useState<string>("");
-  const [to, setTo] = useState<string>("");
+type Props = {
+  kiosks: Kiosk[];
+  rows: Row[];
+};
 
-  useEffect(() => {
-    fetch(`/api/kiosks?only_active=true`).then(r => r.json()).then(setKiosks).catch(()=>setKiosks([]));
-  }, []);
+export const getServerSideProps: GetServerSideProps<Props> = async ({ req }) => {
+  // Fetch via Next API proxies so secrets stay server-side
+  const baseUrl =
+    process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : `http://${req.headers.host}`;
 
-  useEffect(() => {
-    const qs = new URLSearchParams({ ...(from && {date_from: from}), ...(to && {date_to: to}) }).toString();
-    fetch(`/api/metrics?${qs}`).then(r => r.json()).then(setRows).catch(()=>setRows([]));
-  }, [from, to]);
+  const [kiosksRes, metricsRes] = await Promise.all([
+    fetch(`${baseUrl}/api/kiosks`, { headers: { "cache-control": "no-store" } }),
+    fetch(`${baseUrl}/api/metrics`, { headers: { "cache-control": "no-store" } }),
+  ]);
 
-  const nameFor = (id: string) => kiosks.find(k => k.kiosk_id === id)?.kiosk_name || id;
+  if (!kiosksRes.ok) throw new Error(`/api/kiosks failed: ${kiosksRes.status}`);
+  if (!metricsRes.ok) throw new Error(`/api/metrics failed: ${metricsRes.status}`);
 
+  const kiosks: Kiosk[] = await kiosksRes.json();
+  const rows: Row[] = await metricsRes.json();
+
+  return { props: { kiosks, rows } };
+};
+
+export default function Dashboard({ kiosks, rows }: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  // Map kiosk_id -> kiosk_name for friendlier display
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const k of kiosks) m.set(k.kiosk_id, k.kiosk_name);
+    return m;
+  }, [kiosks]);
+
+  // Compute totals
   const totals = useMemo(() => {
-    const started = rows.reduce((s, r) => s + (r.started || 0), 0);
-    const completed = rows.reduce((s, r) => s + (r.completed || 0), 0);
-    const abandoned = rows.reduce((s, r) => s + (r.abandoned || 0), 0);
-    const weightedSum = rows.reduce((s, r) => s + ((r.avg_ms || 0) * (r.started || 0)), 0);
-    const avgMs = started ? (weightedSum / started) : 0;
-    return { started, completed, abandoned, avgMs };
+    return rows.reduce(
+      (acc, r) => {
+        acc.started += r.started || 0;
+        acc.completed += r.completed || 0;
+        acc.abandoned += r.abandoned || 0;
+        acc.restart_clicks += r.restart_clicks || 0;
+        return acc;
+      },
+      { started: 0, completed: 0, abandoned: 0, restart_clicks: 0 }
+    );
   }, [rows]);
 
-  const fmtMs = (ms?: number | null) => {
-    if (!ms || ms <= 0) return "—";
-    const sec = Math.round(ms / 1000);
-    const m = Math.floor(sec / 60).toString();
-    const s = (sec % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  };
-
-  const csvHref = `/api/csv?${new URLSearchParams({ ...(from && {date_from: from}), ...(to && {date_to: to}) })}`;
+  const overallRestartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 8 }}>Kiosk Sessions</h1>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
-        <label>From: <input type="date" value={from} onChange={e=>setFrom(e.target.value)} /></label>
-        <label>To: <input type="date" value={to} onChange={e=>setTo(e.target.value)} /></label>
-        <a href={csvHref}><button>Export CSV</button></a>
-      </div>
+    <>
+      <Head>
+        <title>Kiosk Metrics Dashboard</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-      <table cellPadding={8} style={{ borderCollapse: "collapse", width: "100%", border: "1px solid #e5e7eb" }}>
-        <thead style={{ background: "#f9fafb" }}>
-          <tr>
-            <th align="left">Kiosk</th>
-            <th align="right">Started</th>
-            <th align="right">Completed</th>
-            <th align="right">Abandoned</th>
-            <th align="right">Completion %</th>
-            <th align="right">Avg Session</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => {
-            const pct = r.started ? (r.completed / r.started) : 0;
-            return (
-              <tr key={r.kiosk_id} style={{ borderTop: "1px solid #eee" }}>
-                <td>{nameFor(r.kiosk_id)}</td>
-                <td align="right">{r.started}</td>
-                <td align="right">{r.completed}</td>
-                <td align="right">{r.abandoned}</td>
-                <td align="right">{(pct*100).toFixed(1)}%</td>
-                <td align="right">{fmtMs(r.avg_ms)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr style={{ borderTop: "2px solid #ddd", fontWeight: 600, background: "#fbfbfb" }}>
-            <td>All kiosks</td>
-            <td align="right">{totals.started}</td>
-            <td align="right">{totals.completed}</td>
-            <td align="right">{totals.abandoned}</td>
-            <td align="right">{((totals.completed / (totals.started || 1)) * 100).toFixed(1)}%</td>
-            <td align="right">{fmtMs(totals.avgMs)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+      <main className="min-h-screen bg-gray-50 text-gray-900">
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <header className="mb-6 flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-semibold">Kiosk Metrics</h1>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => (window.location.href = "/api/csv")}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
+                aria-label="Export CSV"
+              >
+                Export CSV
+              </button>
+            </div>
+          </header>
+
+          <section className="overflow-x-auto rounded-lg border bg-white">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100 text-left">
+                <tr>
+                  <th className="p-2">Kiosk</th>
+                  <th className="p-2 text-right">Started</th>
+                  <th className="p-2 text-right">Completed</th>
+                  <th className="p-2 text-right">Abandoned</th>
+                  <th className="p-2 text-right">Restart Clicks</th>
+                  <th className="p-2 text-right">Restart Rate</th>
+                  <th className="p-2 text-right">Avg Sec</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const avgSec = r.avg_ms !== null ? r.avg_ms / 1000 : null;
+                  const restartRate = r.completed ? r.restart_clicks / r.completed : 0;
+                  const label = nameById.get(r.kiosk_id) ?? r.kiosk_id;
+                  return (
+                    <tr key={r.kiosk_id} className="border-t">
+                      <td className="p-2">{label}</td>
+                      <td className="p-2 text-right tabular-nums">{r.started}</td>
+                      <td className="p-2 text-right tabular-nums">{r.completed}</td>
+                      <td className="p-2 text-right tabular-nums">{r.abandoned}</td>
+                      <td className="p-2 text-right tabular-nums">{r.restart_clicks}</td>
+                      <td className="p-2 text-right tabular-nums">{(restartRate * 100).toFixed(1)}%</td>
+                      <td className="p-2 text-right tabular-nums">
+                        {avgSec !== null ? avgSec.toFixed(1) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t bg-gray-50 font-semibold">
+                  <td className="p-2">Totals</td>
+                  <td className="p-2 text-right tabular-nums">{totals.started}</td>
+                  <td className="p-2 text-right tabular-nums">{totals.completed}</td>
+                  <td className="p-2 text-right tabular-nums">{totals.abandoned}</td>
+                  <td className="p-2 text-right tabular-nums">{totals.restart_clicks}</td>
+                  <td className="p-2 text-right tabular-nums">
+                    {(overallRestartRate * 100).toFixed(1)}%
+                  </td>
+                  <td className="p-2 text-right">—</td>
+                </tr>
+              </tfoot>
+            </table>
+          </section>
+
+          <p className="mt-3 text-xs text-gray-500">
+            Showing {rows.length} kiosks. Restart Rate = Restart Clicks ÷ Completed.
+          </p>
+        </div>
+      </main>
+    </>
   );
 }
