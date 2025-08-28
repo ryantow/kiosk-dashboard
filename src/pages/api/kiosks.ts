@@ -10,8 +10,8 @@ function toQueryString(q: NextApiRequest["query"]): string {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const base = process.env.API_BASE_URL;
-  const key = process.env.API_KEY;
+  const base = (process.env.API_BASE_URL || "").trim();
+  const key  = (process.env.API_KEY || "").trim();
 
   if (!base || !key) {
     res.status(500).json({ error: "Proxy misconfigured", base: !!base, key: !!key });
@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(r.status).json({ error: "Upstream error", status: r.status, body: text });
       return;
     }
-    res.status(200).send(text); // already JSON string
+    res.status(200).send(text); // JSON passthrough
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     res.status(500).json({ error: "fetch failed", message, url });
