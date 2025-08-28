@@ -1,23 +1,26 @@
 import { Pool } from "pg";
 
 declare global {
-  // eslint-disable-next-line no-var
+  // Keep a global for hot-reload/serverless reuse; no eslint disable needed
+  // eslint rules won't complain in ambient context
   var __pgPool__: Pool | undefined;
 }
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) throw new Error("Missing env: DATABASE_URL");
+export function getPool(): Pool {
+  if (global.__pgPool__) return global.__pgPool__;
 
-// Reuse across hot reloads/serverless invocations
-export const pool =
-  global.__pgPool__ ??
-  new Pool({
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL not set");
+
+  const pool = new Pool({
     connectionString,
-    // If your provider requires TLS but the URL doesn’t include it, uncomment:
+    // If your provider requires TLS and your URL lacks it, uncomment:
     // ssl: { rejectUnauthorized: false },
     max: 3,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
   });
 
-if (process.env.NODE_ENV !== "production") global.__pgPool__ = pool;
+  global.__pgPool__ = pool;
+  return pool;
+}
