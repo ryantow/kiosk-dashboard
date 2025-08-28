@@ -1,6 +1,8 @@
 import Head from "next/head";
-import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
+// import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useMemo } from "react";
+
+import type { GetServerSideProps } from "next";
 
 type Kiosk = { kiosk_id: string; kiosk_name: string };
 type Row = {
@@ -12,30 +14,56 @@ type Row = {
   avg_ms: number | null;
 };
 
-type Props = {
-  kiosks: Kiosk[];
-  rows: Row[];
-};
+type Props =
+  | { kiosks: Kiosk[]; rows: Row[]; error?: undefined }
+  | { kiosks: []; rows: []; error: { msg: string; kiosksStatus?: number; metricsStatus?: number; detail?: string } };
 
-export const getServerSideProps: GetServerSideProps<Props> = async ({ req }) => {
-  // Fetch via Next API proxies so secrets stay server-side
-  const baseUrl =
-    process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : `http://${req.headers.host}`;
+export const getServerSideProps: GetServerSideProps<Props> = async () => {
+  const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-....up.railway.app
+  const KEY  = (process.env.API_KEY || "").trim();
 
-  const [kiosksRes, metricsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/kiosks`, { headers: { "cache-control": "no-store" } }),
-    fetch(`${baseUrl}/api/metrics`, { headers: { "cache-control": "no-store" } }),
-  ]);
+  // Failsafe: surface config issues in the page (no white screen)
+  if (!BASE || !KEY) {
+    return {
+      props: {
+        kiosks: [],
+        rows: [],
+        error: { msg: "Missing API envs in Vercel", detail: `API_BASE_URL:${!!BASE} API_KEY:${!!KEY}` },
+      },
+    };
+  }
 
-  if (!kiosksRes.ok) throw new Error(`/api/kiosks failed: ${kiosksRes.status}`);
-  if (!metricsRes.ok) throw new Error(`/api/metrics failed: ${metricsRes.status}`);
+  // Fetch directly from Railway (bypass Next proxies)
+  try {
+    const [kiosksRes, metricsRes] = await Promise.all([
+      fetch(`${BASE}/kiosks`, { headers: { Authorization: `Bearer ${KEY}` } }),
+      fetch(`${BASE}/metrics/by-kiosk`, { headers: { Authorization: `Bearer ${KEY}` } }),
+    ]);
 
-  const kiosks: Kiosk[] = await kiosksRes.json();
-  const rows: Row[] = await metricsRes.json();
+    if (!kiosksRes.ok || !metricsRes.ok) {
+      const kiosksStatus = kiosksRes.status;
+      const metricsStatus = metricsRes.status;
+      return {
+        props: {
+          kiosks: [],
+          rows: [],
+          error: { msg: "Railway API failed", kiosksStatus, metricsStatus },
+        },
+      };
+    }
 
-  return { props: { kiosks, rows } };
+    const kiosks: Kiosk[] = await kiosksRes.json();
+    const rows: Row[] = await metricsRes.json();
+    return { props: { kiosks, rows } };
+  } catch (e) {
+    return {
+      props: {
+        kiosks: [],
+        rows: [],
+        error: { msg: e instanceof Error ? e.message : String(e) },
+      },
+    };
+  }
 };
 
 export default function Dashboard({ kiosks, rows }: InferGetServerSidePropsType<typeof getServerSideProps>) {
