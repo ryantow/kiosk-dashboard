@@ -1,8 +1,6 @@
 import Head from "next/head";
-// import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
+import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useMemo } from "react";
-
-import type { GetServerSideProps } from "next";
 
 type Kiosk = { kiosk_id: string; kiosk_name: string };
 type Row = {
@@ -18,22 +16,21 @@ type Props =
   | { kiosks: Kiosk[]; rows: Row[]; error?: undefined }
   | { kiosks: []; rows: []; error: { msg: string; kiosksStatus?: number; metricsStatus?: number; detail?: string } };
 
+// ---- Server-side: fetch DIRECTLY from Railway (bypass /api proxies) ----
 export const getServerSideProps: GetServerSideProps<Props> = async () => {
-  const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-....up.railway.app
-  const KEY  = (process.env.API_KEY || "").trim();
+  const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
+  const KEY = (process.env.API_KEY || "").trim();
 
-  // Failsafe: surface config issues in the page (no white screen)
   if (!BASE || !KEY) {
     return {
       props: {
         kiosks: [],
         rows: [],
-        error: { msg: "Missing API envs in Vercel", detail: `API_BASE_URL:${!!BASE} API_KEY:${!!KEY}` },
+        error: { msg: "Missing API envs on the server", detail: `API_BASE_URL:${!!BASE} API_KEY:${!!KEY}` },
       },
     };
   }
 
-  // Fetch directly from Railway (bypass Next proxies)
   try {
     const [kiosksRes, metricsRes] = await Promise.all([
       fetch(`${BASE}/kiosks`, { headers: { Authorization: `Bearer ${KEY}` } }),
@@ -41,13 +38,11 @@ export const getServerSideProps: GetServerSideProps<Props> = async () => {
     ]);
 
     if (!kiosksRes.ok || !metricsRes.ok) {
-      const kiosksStatus = kiosksRes.status;
-      const metricsStatus = metricsRes.status;
       return {
         props: {
           kiosks: [],
           rows: [],
-          error: { msg: "Railway API failed", kiosksStatus, metricsStatus },
+          error: { msg: "Railway API failed", kiosksStatus: kiosksRes.status, metricsStatus: metricsRes.status },
         },
       };
     }
@@ -66,27 +61,49 @@ export const getServerSideProps: GetServerSideProps<Props> = async () => {
   }
 };
 
-export default function Dashboard({ kiosks, rows }: InferGetServerSidePropsType<typeof getServerSideProps>) {
-  // Map kiosk_id -> kiosk_name for friendlier display
+export default function Dashboard(props: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  // Error panel (prevents 500 white-screen)
+  if ("error" in props && props.error) {
+    return (
+      <main className="min-h-screen bg-gray-50 text-gray-900">
+        <div className="mx-auto max-w-3xl p-6">
+          <h1 className="text-xl font-semibold mb-3">Dashboard Error</h1>
+          <pre className="whitespace-pre-wrap rounded border bg-white p-3 text-sm">
+            {JSON.stringify(props.error, null, 2)}
+          </pre>
+          <p className="mt-4 text-sm">
+            Check your Railway API and Vercel env vars (<code>API_BASE_URL</code>, <code>API_KEY</code>). This page now
+            fetches Railway directly on the server.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const { kiosks, rows } = props;
+
+  // Map kiosk_id -> friendly name
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const k of kiosks) m.set(k.kiosk_id, k.kiosk_name);
     return m;
   }, [kiosks]);
 
-  // Compute totals
-  const totals = useMemo(() => {
-    return rows.reduce(
-      (acc, r) => {
-        acc.started += r.started || 0;
-        acc.completed += r.completed || 0;
-        acc.abandoned += r.abandoned || 0;
-        acc.restart_clicks += r.restart_clicks || 0;
-        return acc;
-      },
-      { started: 0, completed: 0, abandoned: 0, restart_clicks: 0 }
-    );
-  }, [rows]);
+  // Totals
+  const totals = useMemo(
+    () =>
+      rows.reduce(
+        (acc, r) => {
+          acc.started += r.started || 0;
+          acc.completed += r.completed || 0;
+          acc.abandoned += r.abandoned || 0;
+          acc.restart_clicks += r.restart_clicks || 0;
+          return acc;
+        },
+        { started: 0, completed: 0, abandoned: 0, restart_clicks: 0 }
+      ),
+    [rows]
+  );
 
   const overallRestartRate = totals.completed ? totals.restart_clicks / totals.completed : 0;
 
@@ -102,6 +119,7 @@ export default function Dashboard({ kiosks, rows }: InferGetServerSidePropsType<
           <header className="mb-6 flex items-center justify-between gap-3">
             <h1 className="text-2xl font-semibold">Kiosk Metrics</h1>
             <div className="flex items-center gap-2">
+              {/* CSV still goes through your Next proxy (works great for download) */}
               <button
                 onClick={() => (window.location.href = "/api/csv")}
                 className="rounded-md border px-3 py-2 text-sm hover:bg-gray-100"
@@ -138,9 +156,7 @@ export default function Dashboard({ kiosks, rows }: InferGetServerSidePropsType<
                       <td className="p-2 text-right tabular-nums">{r.abandoned}</td>
                       <td className="p-2 text-right tabular-nums">{r.restart_clicks}</td>
                       <td className="p-2 text-right tabular-nums">{(restartRate * 100).toFixed(1)}%</td>
-                      <td className="p-2 text-right tabular-nums">
-                        {avgSec !== null ? avgSec.toFixed(1) : "—"}
-                      </td>
+                      <td className="p-2 text-right tabular-nums">{avgSec !== null ? avgSec.toFixed(1) : "—"}</td>
                     </tr>
                   );
                 })}
@@ -152,9 +168,7 @@ export default function Dashboard({ kiosks, rows }: InferGetServerSidePropsType<
                   <td className="p-2 text-right tabular-nums">{totals.completed}</td>
                   <td className="p-2 text-right tabular-nums">{totals.abandoned}</td>
                   <td className="p-2 text-right tabular-nums">{totals.restart_clicks}</td>
-                  <td className="p-2 text-right tabular-nums">
-                    {(overallRestartRate * 100).toFixed(1)}%
-                  </td>
+                  <td className="p-2 text-right tabular-nums">{(overallRestartRate * 100).toFixed(1)}%</td>
                   <td className="p-2 text-right">—</td>
                 </tr>
               </tfoot>
