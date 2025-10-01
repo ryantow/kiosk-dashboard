@@ -1,9 +1,15 @@
 // src/pages/_app.tsx
 import type { AppProps } from "next/app";
-import "../styles/globals.css";          // <-- make sure this path exists
-import type { UserProfile } from '@auth0/nextjs-auth0/client'; // <--this was added for auth0 support
-import { UserProvider } from '@auth0/nextjs-auth0/client';
+import "../styles/globals.css";
+import { UserProvider } from "@auth0/nextjs-auth0"; // <- no /client
 import Layout from "@/components/Layout";
+
+type Auth0User = {
+  name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+  [key: string]: unknown;
+};
 
 export default function App(
   { Component, pageProps }: AppProps & { pageProps: { user?: UserProfile } }
