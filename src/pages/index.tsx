@@ -2,6 +2,7 @@ import Head from "next/head";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import { withPageAuthRequired } from "@auth0/nextjs-auth0";
 
 /* -------------------- Types -------------------- */
 type Kiosk = { kiosk_id: string; kiosk_name: string };
@@ -51,64 +52,66 @@ function fmtPct(x: number) {
   return `${(x * 100).toFixed(1)}%`;
 }
 
-/* -------------------- SSR: fetch DIRECT from Railway -------------------- */
-export const getServerSideProps: GetServerSideProps<Props> = async ({ query }) => {
-  const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
-  const KEY = (process.env.API_KEY || "").trim();
 
-  const date_from = typeof query.date_from === "string" ? query.date_from : undefined;
-  const date_to = typeof query.date_to === "string" ? query.date_to : undefined;
+export const getServerSideProps = withPageAuthRequired({
+  async getServerSideProps({ query }) {
+    const BASE = (process.env.API_BASE_URL || "").trim(); // e.g. https://kiosk-api-xxxxx.up.railway.app
+    const KEY = (process.env.API_KEY || "").trim();
 
-  const qs = new URLSearchParams();
-  if (date_from) qs.set("date_from", date_from);
-  if (date_to) qs.set("date_to", date_to);
-  const q = qs.toString() ? `?${qs.toString()}` : "";
+    const date_from = typeof query.date_from === "string" ? query.date_from : undefined;
+    const date_to = typeof query.date_to === "string" ? query.date_to : undefined;
 
-  if (!BASE || !KEY) {
-    return {
-      props: {
-        kiosks: [],
-        rows: [],
-        date_from: date_from ?? null,
-        date_to: date_to ?? null,
-        error: { msg: "Missing API envs on the server", detail: `API_BASE_URL:${!!BASE} API_KEY:${!!KEY}` },
-      },
-    };
-  }
+    const qs = new URLSearchParams();
+    if (date_from) qs.set("date_from", date_from);
+    if (date_to) qs.set("date_to", date_to);
+    const q = qs.toString() ? `?${qs.toString()}` : "";
 
-  try {
-    const [kiosksRes, metricsRes] = await Promise.all([
-      fetch(`${BASE}/kiosks`, { headers: { Authorization: `Bearer ${KEY}` } }),
-      fetch(`${BASE}/metrics/by-kiosk${q}`, { headers: { Authorization: `Bearer ${KEY}` } }),
-    ]);
-
-    if (!kiosksRes.ok || !metricsRes.ok) {
+    if (!BASE || !KEY) {
       return {
         props: {
           kiosks: [],
           rows: [],
           date_from: date_from ?? null,
           date_to: date_to ?? null,
-          error: { msg: "Railway API failed", kiosksStatus: kiosksRes.status, metricsStatus: metricsRes.status },
-        },
+          error: { msg: "Missing API envs on the server", detail: `API_BASE_URL:${!!BASE} API_KEY:${!!KEY}` },
+        } as Props,
       };
     }
 
-    const kiosks: Kiosk[] = await kiosksRes.json();
-    const rows: Row[] = await metricsRes.json();
-    return { props: { kiosks, rows, date_from: date_from ?? null, date_to: date_to ?? null } };
-  } catch (e) {
-    return {
-      props: {
-        kiosks: [],
-        rows: [],
-        date_from: date_from ?? null,
-        date_to: date_to ?? null,
-        error: { msg: e instanceof Error ? e.message : String(e) },
-      },
-    };
-  }
-};
+    try {
+      const [kiosksRes, metricsRes] = await Promise.all([
+        fetch(`${BASE}/kiosks`, { headers: { Authorization: `Bearer ${KEY}` } }),
+        fetch(`${BASE}/metrics/by-kiosk${q}`, { headers: { Authorization: `Bearer ${KEY}` } }),
+      ]);
+
+      if (!kiosksRes.ok || !metricsRes.ok) {
+        return {
+          props: {
+            kiosks: [],
+            rows: [],
+            date_from: date_from ?? null,
+            date_to: date_to ?? null,
+            error: { msg: "Railway API failed", kiosksStatus: kiosksRes.status, metricsStatus: metricsRes.status },
+          } as Props,
+        };
+      }
+
+      const kiosks: Kiosk[] = await kiosksRes.json();
+      const rows: Row[] = await metricsRes.json();
+      return { props: { kiosks, rows, date_from: date_from ?? null, date_to: date_to ?? null } as Props };
+    } catch (e) {
+      return {
+        props: {
+          kiosks: [],
+          rows: [],
+          date_from: date_from ?? null,
+          date_to: date_to ?? null,
+          error: { msg: e instanceof Error ? e.message : String(e) },
+        } as Props,
+      };
+    }
+  },
+});
 
 /* -------------------- Page -------------------- */
 export default function DashboardPage(props: InferGetServerSidePropsType<typeof getServerSideProps>) {
