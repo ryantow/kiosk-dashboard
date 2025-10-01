@@ -3,7 +3,7 @@ import Head from "next/head";
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { withPageAuthRequired } from "@auth0/nextjs-auth0";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import type { InferGetServerSidePropsType } from "next";
 
 /* -------------------- Types -------------------- */
 type Kiosk = { kiosk_id: string; kiosk_name: string };
