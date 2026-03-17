@@ -13,6 +13,8 @@ type Row = {
   abandoned: number;
   restart_clicks: number;
   avg_ms: number | null;
+  avg_completed_ms?: number | null;
+  avg_abandoned_ms?: number | null;
   avg_map_time_sec?: number | null;
   avg_poi_popups_completed?: number | null;
   avg_poi_popups_abandoned?: number | null;
@@ -28,6 +30,8 @@ type OkProps = {
   activeTab: string;
   date_from?: string | null;
   date_to?: string | null;
+  apiUrl: string;   // <-- NEW
+  apiKey: string;   // <-- NEW
   error?: undefined;
 };
 
@@ -103,7 +107,15 @@ export const getServerSideProps = withPageAuthRequired({
       const rows: Row[] = await metricsRes.json();
       
       return { 
-        props: { kiosks, rows, activeTab, date_from: date_from ?? null, date_to: date_to ?? null } as Props,
+        props: { 
+          kiosks, 
+          rows, 
+          activeTab, 
+          date_from: date_from ?? null, 
+          date_to: date_to ?? null,
+          apiUrl: BASE, // <-- Pass down for client-side CSV fetch
+          apiKey: KEY   // <-- Pass down for client-side CSV fetch
+        } as Props,
       };
     } catch (e) {
       return {
@@ -123,7 +135,6 @@ export default function DashboardPage(props: Props) {
   const handleFilterChange = (updates: Record<string, string | undefined>) => {
     const currentQuery: Record<string, string | string[] | undefined> = { ...router.query, ...updates };
     
-    // Safely clean up undefined values before pushing to the router
     Object.keys(currentQuery).forEach((key) => {
       if (currentQuery[key] === undefined) {
         delete currentQuery[key];
@@ -131,6 +142,38 @@ export default function DashboardPage(props: Props) {
     });
     
     router.push({ pathname: "/", query: currentQuery });
+  };
+
+  // --- NEW: CSV Download Handler ---
+  const handleDownloadCSV = async () => {
+    if (!("apiUrl" in props) || !props.apiUrl) return;
+
+    try {
+      const qs = new URLSearchParams();
+      if (props.date_from) qs.set("date_from", props.date_from);
+      if (props.date_to) qs.set("date_to", props.date_to);
+      qs.set("experience", props.activeTab);
+
+      const response = await fetch(`${props.apiUrl}/metrics/by-kiosk.csv?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${props.apiKey}` }
+      });
+
+      if (!response.ok) throw new Error("Failed to generate CSV");
+
+      // Convert response to a blob and trigger browser download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `kiosk_metrics_${props.activeTab}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("There was an error downloading the CSV.");
+    }
   };
 
   if ("error" in props && props.error) {
@@ -154,7 +197,7 @@ export default function DashboardPage(props: Props) {
           
           <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <h1 className="text-4xl font-bold tracking-tight text-gray-900">Experience Dashboard</h1>
-            <div className="flex gap-3 items-end">
+            <div className="flex gap-4 items-end">
               <div className="flex flex-col">
                 <label className="text-xs text-gray-600">From</label>
                 <input 
@@ -173,6 +216,14 @@ export default function DashboardPage(props: Props) {
                   className="rounded-md border border-gray-300 px-2 py-1 text-sm shadow-sm" 
                 />
               </div>
+              
+              {/* NEW: Download Button */}
+              <button
+                onClick={handleDownloadCSV}
+                className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              >
+                Download CSV
+              </button>
             </div>
           </header>
 
@@ -223,14 +274,16 @@ export default function DashboardPage(props: Props) {
 
                   {activeTab === "hubwall" && (
                     <>
-                      <th className="p-4 text-right border-l border-gray-300">Avg Drop-off Screen Depth</th>
+                      <th className="p-4 text-right border-l border-gray-300">Avg Time (Completed)</th>
+                      <th className="p-4 text-right">Avg Time (Abandoned)</th>
+                      <th className="p-4 text-right">Restarts</th>
+                      <th className="p-4 text-right">Avg Drop-off Screen Depth</th>
                     </>
                   )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {rows.map((r) => {
-                  // Find the matching human-readable name
                   const matchedKiosk = kiosks?.find((k) => k.kiosk_id === r.kiosk_id);
                   const displayName = matchedKiosk ? matchedKiosk.kiosk_name : "Unknown Location";
 
@@ -277,7 +330,16 @@ export default function DashboardPage(props: Props) {
 
                       {activeTab === "hubwall" && (
                         <>
-                          <td className="p-4 text-right border-l border-gray-100 tabular-nums text-red-600 font-medium">
+                          <td className="p-4 text-right border-l border-gray-100 tabular-nums">
+                            {r.avg_completed_ms ? `${(r.avg_completed_ms / 1000).toFixed(1)}s` : "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_abandoned_ms ? `${(r.avg_abandoned_ms / 1000).toFixed(1)}s` : "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.restart_clicks || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums text-red-600 font-medium">
                             {r.avg_abandoned_screen_depth?.toFixed(1) || "-"}
                           </td>
                         </>
