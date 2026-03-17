@@ -121,7 +121,7 @@ export default function DashboardPage(props: Props) {
   const totals = useMemo(() => computeTotals(rows), [rows]);
 
   const handleFilterChange = (updates: Record<string, string | undefined>) => {
-    const currentQuery: Record<string, any> = { ...router.query, ...updates };
+    const currentQuery: Record<string, string | string[] | undefined> = { ...router.query, ...updates };
     
     // Safely clean up undefined values before pushing to the router
     Object.keys(currentQuery).forEach((key) => {
