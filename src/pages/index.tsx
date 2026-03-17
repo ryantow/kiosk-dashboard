@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/router";
 import { withPageAuthRequired } from "@auth0/nextjs-auth0";
 import type { InferGetServerSidePropsType } from "next";
