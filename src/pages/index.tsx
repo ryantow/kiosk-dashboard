@@ -142,7 +142,7 @@ export default function DashboardPage(props: Props) {
     );
   }
 
-  const { activeTab, date_from, date_to } = props as OkProps;
+  const { activeTab, date_from, date_to, kiosks } = props as OkProps;
 
   return (
     <>
@@ -205,7 +205,7 @@ export default function DashboardPage(props: Props) {
             <table className="min-w-full text-sm text-left">
               <thead className="bg-gray-100 text-gray-700 uppercase tracking-wide">
                 <tr>
-                  <th className="p-4">Source ID</th>
+                  <th className="p-4">Location / Source ID</th>
                   <th className="p-4 text-right">Started</th>
                   <th className="p-4 text-right">Completed</th>
                   <th className="p-4 text-right">Abandoned</th>
@@ -229,53 +229,62 @@ export default function DashboardPage(props: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {rows.map((r) => (
-                  <tr key={r.kiosk_id} className="hover:bg-gray-50">
-                    <td className="p-4 font-medium text-gray-900">{r.kiosk_id}</td>
-                    <td className="p-4 text-right tabular-nums">{r.started}</td>
-                    <td className="p-4 text-right tabular-nums">{r.completed}</td>
-                    <td className="p-4 text-right tabular-nums">{r.abandoned}</td>
+                {rows.map((r) => {
+                  // Find the matching human-readable name
+                  const matchedKiosk = kiosks?.find((k) => k.kiosk_id === r.kiosk_id);
+                  const displayName = matchedKiosk ? matchedKiosk.kiosk_name : "Unknown Location";
 
-                    {activeTab === "wallet" && (
-                      <>
-                        <td className="p-4 text-right border-l border-gray-100 tabular-nums">
-                          {r.avg_map_time_sec?.toFixed(1) || "-"}
-                        </td>
-                        <td className="p-4 text-right tabular-nums">
-                          {r.avg_poi_popups_completed?.toFixed(1) || "-"}
-                        </td>
-                        <td className="p-4 text-right tabular-nums text-gray-500">
-                          {r.avg_poi_popups_abandoned?.toFixed(1) || "-"}
-                        </td>
-                        <td className="p-4 text-right tabular-nums">
-                          {r.avg_easter_eggs?.toFixed(1) || "-"}
-                        </td>
-                        <td className="p-4 text-right tabular-nums">
-                          {r.back_to_map_sessions || 0}
-                        </td>
-                        <td className="p-4 text-xs">
-                          {r.poi_clicks ? (
-                            <div className="flex flex-wrap gap-1">
-                              {Object.entries(r.poi_clicks).map(([poi, count]) => (
-                                <span key={poi} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                  {poi}: {count}
-                                </span>
-                              ))}
-                            </div>
-                          ) : "None"}
-                        </td>
-                      </>
-                    )}
+                  return (
+                    <tr key={r.kiosk_id} className="hover:bg-gray-50">
+                      <td className="p-4">
+                        <div className="font-medium text-gray-900">{displayName}</div>
+                        <div className="text-xs text-gray-400">{r.kiosk_id}</div>
+                      </td>
+                      <td className="p-4 text-right tabular-nums">{r.started}</td>
+                      <td className="p-4 text-right tabular-nums">{r.completed}</td>
+                      <td className="p-4 text-right tabular-nums">{r.abandoned}</td>
 
-                    {activeTab === "hubwall" && (
-                      <>
-                        <td className="p-4 text-right border-l border-gray-100 tabular-nums text-red-600 font-medium">
-                          {r.avg_abandoned_screen_depth?.toFixed(1) || "-"}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                      {activeTab === "wallet" && (
+                        <>
+                          <td className="p-4 text-right border-l border-gray-100 tabular-nums">
+                            {r.avg_map_time_sec?.toFixed(1) || "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_poi_popups_completed?.toFixed(1) || "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums text-gray-500">
+                            {r.avg_poi_popups_abandoned?.toFixed(1) || "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_easter_eggs?.toFixed(1) || "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.back_to_map_sessions || 0}
+                          </td>
+                          <td className="p-4 text-xs">
+                            {r.poi_clicks ? (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(r.poi_clicks).map(([poi, count]) => (
+                                  <span key={poi} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                                    {poi}: {count}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : "None"}
+                          </td>
+                        </>
+                      )}
+
+                      {activeTab === "hubwall" && (
+                        <>
+                          <td className="p-4 text-right border-l border-gray-100 tabular-nums text-red-600 font-medium">
+                            {r.avg_abandoned_screen_depth?.toFixed(1) || "-"}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={10} className="p-8 text-center text-gray-500">No data found for this tab and date range.</td>
