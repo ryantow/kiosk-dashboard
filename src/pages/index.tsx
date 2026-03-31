@@ -261,11 +261,18 @@ export default function DashboardPage(props: Props) {
                   <th className="p-4 text-right">Completed</th>
                   <th className="p-4 text-right">Abandoned</th>
                   
-                  {activeTab === "wallet" && (
+                {activeTab === "wallet" && (
                     <>
-                      <th className="p-4 text-right border-l border-gray-300">Avg Easter Eggs</th>
+                      <th className="p-4 text-right border-l border-gray-300">Avg Time (Completed)</th>
+                      <th className="p-4 text-right">Avg Time (Abandoned)</th>
                       <th className="p-4 text-right">Back to Map #</th>
-                      <th className="p-4">POI Breakdown</th>
+                      <th className="p-4 text-right">Restarts</th>
+                      <th className="p-4 text-right">POI 1 (Priority Pass)</th>
+                      <th className="p-4 text-right">POI 2 (Barcode Booth)</th>
+                      <th className="p-4 text-right">POI 3 (Support Spotlight)</th>
+                      <th className="p-4 text-right">POI 4 (Self Service)</th>
+                      <th className="p-4 text-right">POI 5 (Cash Concession)</th>
+                      <th className="p-4 text-right">Avg Easter Eggs</th>
                     </>
                   )}
 
@@ -297,21 +304,34 @@ export default function DashboardPage(props: Props) {
                       {activeTab === "wallet" && (
                         <>
                           <td className="p-4 text-right border-l border-gray-100 tabular-nums">
-                            {r.avg_easter_eggs?.toFixed(1) || "-"}
+                            {r.avg_completed_ms ? `${(r.avg_completed_ms / 1000).toFixed(1)}s` : "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_abandoned_ms ? `${(r.avg_abandoned_ms / 1000).toFixed(1)}s` : "-"}
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.back_to_map_sessions || 0}
                           </td>
-                          <td className="p-4 text-xs">
-                            {r.poi_clicks ? (
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(r.poi_clicks).map(([poi, count]) => (
-                                  <span key={poi} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                                    {poi}: {count}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : "None"}
+                          <td className="p-4 text-right tabular-nums">
+                            {r.restart_clicks || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Priority Pass"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Barcode Booth"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Support Spotlight"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Self Service Station"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Cash Concession"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_easter_eggs?.toFixed(1) || "-"}
                           </td>
                         </>
                       )}
