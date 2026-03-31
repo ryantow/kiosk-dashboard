@@ -316,19 +316,19 @@ export default function DashboardPage(props: Props) {
                             {r.restart_clicks || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["Priority Pass"] || 0}
+                            {r.poi_clicks?.["PP"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["Barcode Booth"] || 0}
+                            {r.poi_clicks?.["BB"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["Support Spotlight"] || 0}
+                            {r.poi_clicks?.["SS"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["Self Service Station"] || 0}
+                            {r.poi_clicks?.["SSS"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["Cash Concession"] || 0}
+                            {r.poi_clicks?.["CC"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.avg_easter_eggs?.toFixed(1) || "-"}
