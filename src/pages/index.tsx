@@ -263,10 +263,7 @@ export default function DashboardPage(props: Props) {
                   
                   {activeTab === "wallet" && (
                     <>
-                      <th className="p-4 text-right border-l border-gray-300">Avg Map Time (s)</th>
-                      <th className="p-4 text-right">Avg Popups (Done)</th>
-                      <th className="p-4 text-right">Avg Popups (Drop)</th>
-                      <th className="p-4 text-right">Avg Easter Eggs</th>
+                      <th className="p-4 text-right border-l border-gray-300">Avg Easter Eggs</th>
                       <th className="p-4 text-right">Back to Map #</th>
                       <th className="p-4">POI Breakdown</th>
                     </>
@@ -300,15 +297,6 @@ export default function DashboardPage(props: Props) {
                       {activeTab === "wallet" && (
                         <>
                           <td className="p-4 text-right border-l border-gray-100 tabular-nums">
-                            {r.avg_map_time_sec?.toFixed(1) || "-"}
-                          </td>
-                          <td className="p-4 text-right tabular-nums">
-                            {r.avg_poi_popups_completed?.toFixed(1) || "-"}
-                          </td>
-                          <td className="p-4 text-right tabular-nums text-gray-500">
-                            {r.avg_poi_popups_abandoned?.toFixed(1) || "-"}
-                          </td>
-                          <td className="p-4 text-right tabular-nums">
                             {r.avg_easter_eggs?.toFixed(1) || "-"}
                           </td>
                           <td className="p-4 text-right tabular-nums">
