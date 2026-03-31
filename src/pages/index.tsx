@@ -264,15 +264,15 @@ export default function DashboardPage(props: Props) {
                 {activeTab === "wallet" && (
                     <>
                       <th className="p-4 text-right border-l border-gray-300">Avg Time (Completed)</th>
-                      <th className="p-4 text-right">Avg Time (Abandoned)</th>
+                      <th className="p-4 text-right">Avg Time (Abndn)</th>
                       <th className="p-4 text-right">Back to Map #</th>
                       <th className="p-4 text-right">Restarts</th>
-                      <th className="p-4 text-right">POI 1 (Priority Pass)</th>
-                      <th className="p-4 text-right">POI 2 (Barcode Booth)</th>
-                      <th className="p-4 text-right">POI 3 (Support Spotlight)</th>
-                      <th className="p-4 text-right">POI 4 (Self Service)</th>
-                      <th className="p-4 text-right">POI 5 (Cash Concession)</th>
-                      <th className="p-4 text-right">Avg Easter Eggs</th>
+                      <th className="p-4 text-right">POI 1 (PP)</th>
+                      <th className="p-4 text-right">POI 2 (BB)</th>
+                      <th className="p-4 text-right">POI 3 (SS)</th>
+                      <th className="p-4 text-right">POI 4 (SSS)</th>
+                      <th className="p-4 text-right">POI 5 (CCC)</th>
+                      <th className="p-4 text-right">AvgEggs</th>
                     </>
                   )}
 
@@ -316,19 +316,19 @@ export default function DashboardPage(props: Props) {
                             {r.restart_clicks || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["PP"] || 0}
+                            {r.poi_clicks?.["Priority Pass"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["BB"] || 0}
+                            {r.poi_clicks?.["Barcode Booth"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["SS"] || 0}
+                            {r.poi_clicks?.["Support Spotlight"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["SSS"] || 0}
+                            {r.poi_clicks?.["Self Service Station"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
-                            {r.poi_clicks?.["CC"] || 0}
+                            {r.poi_clicks?.["Cash Concession"] || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.avg_easter_eggs?.toFixed(1) || "-"}
