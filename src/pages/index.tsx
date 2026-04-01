@@ -131,7 +131,10 @@ export const getServerSideProps = withPageAuthRequired({
 export default function DashboardPage(props: Props) {
   const router = useRouter();
   
-const rawRows = "rows" in props && props.rows ? props.rows : EMPTY_ROWS;
+  // Extract activeTab up here so the filter can safely use it!
+  const activeTab = props.activeTab; 
+  
+  const rawRows = "rows" in props && props.rows ? props.rows : EMPTY_ROWS;
   
   // Filter the rows based on the active tab's designated prefix
   const rows = useMemo(() => {
@@ -209,7 +212,8 @@ const rawRows = "rows" in props && props.rows ? props.rows : EMPTY_ROWS;
     );
   }
 
-  const { activeTab, date_from, date_to, kiosks } = props as OkProps;
+// We removed activeTab from here since we already grabbed it at the top
+  const { date_from, date_to, kiosks } = props as OkProps;
 
   return (
     <>
