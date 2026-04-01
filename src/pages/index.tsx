@@ -22,6 +22,8 @@ type Row = {
   back_to_map_sessions?: number | null;
   avg_abandoned_screen_depth?: number | null;
   poi_clicks?: Record<string, number>;
+  download_app_clicks?: number | null;
+  click_location_clicks?: number | null;
 };
 
 type OkProps = {
@@ -144,7 +146,7 @@ export default function DashboardPage(props: Props) {
     router.push({ pathname: "/", query: currentQuery });
   };
 
-  // --- NEW: CSV Download Handler ---
+  // --- CSV Download Handler ---
   const handleDownloadCSV = async () => {
     if (!("apiUrl" in props) || !props.apiUrl) return;
 
@@ -217,7 +219,6 @@ export default function DashboardPage(props: Props) {
                 />
               </div>
               
-              {/* NEW: Download Button */}
               <button
                 onClick={handleDownloadCSV}
                 className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
@@ -261,7 +262,7 @@ export default function DashboardPage(props: Props) {
                   <th className="p-4 text-right">Completed</th>
                   <th className="p-4 text-right">Abandoned</th>
                   
-                {activeTab === "wallet" && (
+                  {activeTab === "wallet" && (
                     <>
                       <th className="p-4 text-right border-l border-gray-300">Avg Time (Completed)</th>
                       <th className="p-4 text-right">Avg Time (Abndn)</th>
@@ -272,7 +273,24 @@ export default function DashboardPage(props: Props) {
                       <th className="p-4 text-right">POI 3 (SS)</th>
                       <th className="p-4 text-right">POI 4 (SSS)</th>
                       <th className="p-4 text-right">POI 5 (CCC)</th>
-                      <th className="p-4 text-right">AvgEggs</th>
+                      <th className="p-4 text-right">Avg. Eggs</th>
+                    </>
+                  )}
+
+                  {activeTab === "mobile" && (
+                    <>
+                      <th className="p-4 text-right border-l border-gray-300">Avg Time (Completed)</th>
+                      <th className="p-4 text-right">Avg Time (Abndn)</th>
+                      <th className="p-4 text-right">Back to Map #</th>
+                      <th className="p-4 text-right">Restarts</th>
+                      <th className="p-4 text-right">Download App</th>
+                      <th className="p-4 text-right">Find Location</th>
+                      <th className="p-4 text-right">POI 1 (PP)</th>
+                      <th className="p-4 text-right">POI 2 (BB)</th>
+                      <th className="p-4 text-right">POI 3 (SS)</th>
+                      <th className="p-4 text-right">POI 4 (SSS)</th>
+                      <th className="p-4 text-right">POI 5 (CCC)</th>
+                      <th className="p-4 text-right">Avg. Eggs</th>
                     </>
                   )}
 
@@ -314,6 +332,47 @@ export default function DashboardPage(props: Props) {
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.restart_clicks || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Priority Pass"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Barcode Booth"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Support Spotlight"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Self Service Station"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.poi_clicks?.["Cash Concession"] || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_easter_eggs?.toFixed(1) || "-"}
+                          </td>
+                        </>
+                      )}
+
+                      {activeTab === "mobile" && (
+                        <>
+                          <td className="p-4 text-right border-l border-gray-100 tabular-nums">
+                            {r.avg_completed_ms ? `${(r.avg_completed_ms / 1000).toFixed(1)}s` : "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.avg_abandoned_ms ? `${(r.avg_abandoned_ms / 1000).toFixed(1)}s` : "-"}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.back_to_map_sessions || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums">
+                            {r.restart_clicks || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums font-medium text-blue-600">
+                            {r.download_app_clicks || 0}
+                          </td>
+                          <td className="p-4 text-right tabular-nums font-medium text-blue-600">
+                            {r.click_location_clicks || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.poi_clicks?.["Priority Pass"] || 0}
