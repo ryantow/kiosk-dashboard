@@ -147,7 +147,7 @@ const rawRows = "rows" in props && props.rows ? props.rows : EMPTY_ROWS;
       }
       if (activeTab === "hubwall") {
         // Assuming Hubwalls are whatever is left over (or change this to id.startsWith("hubwall"))
-        return !id.startsWith("hubwall_") && !id.startsWith("hubwall");
+        return id.startsWith("hubwall_") && !id.startsWith("hubwall");
       }
       
       return true;
