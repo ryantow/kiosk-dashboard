@@ -131,7 +131,29 @@ export const getServerSideProps = withPageAuthRequired({
 export default function DashboardPage(props: Props) {
   const router = useRouter();
   
-  const rows = "rows" in props && props.rows ? props.rows : EMPTY_ROWS;
+const rawRows = "rows" in props && props.rows ? props.rows : EMPTY_ROWS;
+  
+  // Filter the rows based on the active tab's designated prefix
+  const rows = useMemo(() => {
+    return rawRows.filter((r) => {
+      const id = r.kiosk_id.toLowerCase();
+      
+      if (activeTab === "mobile") {
+        return id.startsWith("mobile_") || id.startsWith("mobile-");
+      }
+      if (activeTab === "wallet") {
+        // Change "wallet" to whatever prefix your wallet kiosks use!
+        return id.startsWith("wallet_") || id.startsWith("wallet-");
+      }
+      if (activeTab === "hubwall") {
+        // Assuming Hubwalls are whatever is left over (or change this to id.startsWith("hubwall"))
+        return !id.startsWith("hubwall_") && !id.startsWith("hubwall");
+      }
+      
+      return true;
+    });
+  }, [rawRows, activeTab]);
+
   const totals = useMemo(() => computeTotals(rows), [rows]);
 
   const handleFilterChange = (updates: Record<string, string | undefined>) => {
