@@ -218,7 +218,7 @@ export default function DashboardPage(props: Props) {
   return (
     <>
       <Head>
-        <title>Experience Dashboard</title>
+        <title>Capital One Summer 2026 Data Tracking</title>
       </Head>
       <main className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-12">
         <div className="mx-auto max-w-[1400px] px-6 py-8">
