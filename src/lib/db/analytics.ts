@@ -4,7 +4,9 @@ export type EventType =
   | "session_start"
   | "session_complete"
   | "session_abandon"
-  | "session_restart_click";
+  | "session_restart_click"
+  | "download_app_click"
+  | "find_location_click";
 
 type InsertArgs = {
   session_id: string;

@@ -307,7 +307,6 @@ export default function DashboardPage(props: Props) {
                     <>
                       <th className="p-4 text-right border-l border-gray-300">Avg Time (Completed)</th>
                       <th className="p-4 text-right">Avg Time (Abndn)</th>
-                      <th className="p-4 text-right">Back to Map #</th>
                       <th className="p-4 text-right">Restarts</th>
                       <th className="p-4 text-right">Download App</th>
                       <th className="p-4 text-right">Find Location</th>
@@ -387,9 +386,6 @@ export default function DashboardPage(props: Props) {
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.avg_abandoned_ms ? `${(r.avg_abandoned_ms / 1000).toFixed(1)}s` : "-"}
-                          </td>
-                          <td className="p-4 text-right tabular-nums">
-                            {r.back_to_map_sessions || 0}
                           </td>
                           <td className="p-4 text-right tabular-nums">
                             {r.restart_clicks || 0}

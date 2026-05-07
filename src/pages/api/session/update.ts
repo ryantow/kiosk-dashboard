@@ -6,6 +6,8 @@ const allowed: EventType[] = [
   "session_complete",
   "session_abandon",
   "session_restart_click",
+  "download_app_click",
+  "find_location_click",
 ];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
